@@ -1,0 +1,32 @@
+# 智慧药房机器人上位机程序依赖包
+
+# 串口通信
+pyserial>=3.5
+
+# 图像处理和计算机视觉
+opencv-python>=4.5.0
+numpy>=1.21.0
+Pillow>=8.0.0
+
+# 二维码识别
+pyzbar>=0.1.8
+
+# OCR文字识别
+pytesseract>=0.3.8
+
+# 语音合成（可选，系统自带say命令作为备选）
+pyttsx3>=2.90
+
+# 日志和时间处理（Python内置，无需安装）
+# datetime
+# logging
+# threading
+# queue
+# time
+# os
+# sys
+# json
+
+# 开发和测试工具（可选）
+# pytest>=6.0.0
+# flake8>=3.8.0
