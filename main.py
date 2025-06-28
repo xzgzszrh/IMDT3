@@ -5,39 +5,52 @@
 负责串口通信、图像识别、语音播报和日志记录
 """
 
-import os
 import sys
+import os
 import time
 import threading
+import argparse
 from datetime import datetime
 
-# 添加模块路径
-sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
+# 导入配置文件
+from config import Config
 
 # 导入自定义模块
-from serial_comm import SerialCommunication
-from image_recognition import ImageRecognition
-from voice_player import VoicePlayer
-from logger import SystemLogger
-from task_controller import TaskController
+from modules.serial_comm import SerialCommunication
+from modules.image_recognition import ImageRecognition
+from modules.voice_player import VoicePlayer
+from modules.logger import SystemLogger
+from modules.task_controller import TaskController
 
 class PharmacyRobotSystem:
     """智慧药房机器人系统主类"""
     
-    def __init__(self, port='/dev/ttyUSB0', baudrate=115200):
+    def __init__(self, port=None):
         """初始化系统
         
         Args:
-            port: 串口端口
-            baudrate: 波特率
+            port: 串口端口（可选，默认使用配置文件中的设置）
         """
+        # 使用传入的端口或配置文件中的默认端口
+        self.port = port or Config.SERIAL_PORT
         self.running = False
+        
+        # 打印当前配置
+        if Config.DEBUG_MODE:
+            Config.print_config()
         
         # 初始化日志系统
         self.logger = SystemLogger()
         
         # 初始化串口通信
-        self.serial_comm = SerialCommunication(port, baudrate, self.logger)
+        serial_config = Config.get_serial_config()
+        serial_config['port'] = self.port  # 使用指定的端口
+        self.serial_comm = SerialCommunication(
+            port=serial_config['port'],
+            baudrate=serial_config['baudrate'],
+            timeout=serial_config['timeout']
+        )
+        self.serial_comm.set_data_callback(self._handle_serial_data)
         
         # 初始化图像识别
         self.image_recognition = ImageRecognition(self.logger)
@@ -173,30 +186,47 @@ class PharmacyRobotSystem:
                 
 def main():
     """主函数"""
-    # 检查命令行参数
-    port = '/dev/ttyUSB0'  # 默认串口
-    interactive = False
+    parser = argparse.ArgumentParser(description='智慧药房机器人上位机程序')
+    parser.add_argument('--port', '-p', default=None,
+                       help=f'串口设备路径 (默认: {Config.SERIAL_PORT})')
+    parser.add_argument('--interactive', '-i', action='store_true',
+                       help='启动交互模式')
+    parser.add_argument('--config', '-c', action='store_true',
+                       help='显示当前配置')
+    parser.add_argument('--debug', '-d', action='store_true',
+                       help='启用调试模式')
+    parser.add_argument('--simulation', '-s', action='store_true',
+                       help='启用模拟模式')
     
-    if len(sys.argv) > 1:
-        if '--interactive' in sys.argv or '-i' in sys.argv:
-            interactive = True
-        if '--port' in sys.argv:
-            port_index = sys.argv.index('--port') + 1
-            if port_index < len(sys.argv):
-                port = sys.argv[port_index]
-                
-    # macOS系统可能使用不同的串口名称
-    if sys.platform == 'darwin':  # macOS
-        port = '/dev/tty.usbserial-0001'  # 根据实际情况调整
-        
+    args = parser.parse_args()
+    
+    # 设置运行时配置
+    if args.debug:
+        Config.DEBUG_MODE = True
+    if args.simulation:
+        Config.SIMULATION_MODE = True
+    
+    # 显示配置信息
+    if args.config:
+        Config.print_config()
+        return
+    
+    # 确定使用的串口
+    port = args.port or Config.SERIAL_PORT
     print(f"使用串口: {port}")
     
+    if Config.DEBUG_MODE:
+        print(f"调试模式: 已启用")
+    if Config.SIMULATION_MODE:
+        print(f"模拟模式: 已启用")
+    
+    # 创建系统实例
     system = PharmacyRobotSystem(port=port)
     
     try:
         system.start()
         
-        if interactive:
+        if args.interactive:
             # 交互模式
             system.run_interactive_mode()
         else:
